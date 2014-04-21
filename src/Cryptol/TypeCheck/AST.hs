@@ -290,6 +290,16 @@ tIsVar ty = case tNoUser ty of
               TVar x -> Just x
               _      -> Nothing
 
+tIsFun :: Type -> Maybe (Type, Type)
+tIsFun ty = case tNoUser ty of
+              TCon (TC TCFun) [a, b] -> Just (a, b)
+              _                      -> Nothing
+
+tIsSeq :: Type -> Maybe (Type, Type)
+tIsSeq ty = case tNoUser ty of
+              TCon (TC TCSeq) [n, a] -> Just (n, a)
+              _                      -> Nothing
+
 pIsFin :: Prop -> Maybe Type
 pIsFin ty = case tNoUser ty of
               TCon (PC PFin) [t1] -> Just t1
