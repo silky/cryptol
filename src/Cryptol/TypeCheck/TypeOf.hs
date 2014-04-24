@@ -33,14 +33,7 @@ fastTypeOf tyenv expr =
     ERec fields   -> tRec [ (name, fastTypeOf tyenv e) | (name, e) <- fields ]
     ESel e sel    -> typeSelect (fastTypeOf tyenv e) sel
     EIf _ e _     -> fastTypeOf tyenv e
-    EComp t _ mss -> tSeq (foldr1 tMin (map lenBranch mss)) t
-                       where
-                         lenBranch ms = foldr (.*.) tOne (map lenMatch ms)
-                         lenMatch (Let _) = tOne
-                         lenMatch (From _ _ e) =
-                           case tIsSeq (fastTypeOf tyenv e) of
-                             Just (n, _) -> n
-                             Nothing     -> error "internal error"
+    EComp t _ _   -> t
     EAbs x t e    -> tFun t (fastTypeOf (Map.insert x (Forall [] [] t) tyenv) e)
     EApp e _      -> case tIsFun (fastTypeOf tyenv e) of
                         Just (_, t) -> t
