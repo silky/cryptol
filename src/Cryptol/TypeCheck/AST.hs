@@ -300,6 +300,16 @@ tIsSeq ty = case tNoUser ty of
               TCon (TC TCSeq) [n, a] -> Just (n, a)
               _                      -> Nothing
 
+tIsBit :: Type -> Bool
+tIsBit ty = case tNoUser ty of
+              TCon (TC TCBit) [] -> True
+              _                  -> False
+
+tIsTuple :: Type -> Maybe [Type]
+tIsTuple ty = case tNoUser ty of
+                TCon (TC (TCTuple _)) ts -> Just ts
+                _                        -> Nothing
+
 pIsFin :: Prop -> Maybe Type
 pIsFin ty = case tNoUser ty of
               TCon (PC PFin) [t1] -> Just t1
@@ -314,6 +324,16 @@ pIsEq :: Prop -> Maybe (Type,Type)
 pIsEq ty = case tNoUser ty of
              TCon (PC PEqual) [t1,t2] -> Just (t1,t2)
              _                        -> Nothing
+
+pIsArith :: Prop -> Maybe Type
+pIsArith ty = case tNoUser ty of
+                TCon (PC PArith) [t1] -> Just t1
+                _                     -> Nothing
+
+pIsCmp :: Prop -> Maybe Type
+pIsCmp ty = case tNoUser ty of
+              TCon (PC PCmp) [t1] -> Just t1
+              _                   -> Nothing
 
 
 
