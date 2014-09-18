@@ -16,7 +16,7 @@ import REPL.Monad
 import REPL.Trie
 
 import Control.Monad (when)
-import Data.Char (isSpace)
+import Data.Char (isAlphaNum, isSpace)
 import Data.Function (on)
 import Data.List (isPrefixOf,sortBy)
 import System.Console.Haskeline
@@ -136,6 +136,7 @@ cmdComp prefix c = Completion
 cmdArgument :: CommandBody -> CompletionFunc REPL
 cmdArgument ct cursor@(l,_) = case ct of
   ExprArg     _ -> completeExpr cursor
+  DeclsArg    _ -> (completeExpr +++ completeType) cursor
   ExprTypeArg _ -> (completeExpr +++ completeType) cursor
   FilenameArg _ -> completeFilename cursor
   ShellArg _    -> completeFilename cursor
@@ -146,7 +147,7 @@ cmdArgument ct cursor@(l,_) = case ct of
 completeExpr :: CompletionFunc REPL
 completeExpr (l,_) = do
   ns <- getExprNames
-  let n    = reverse l
+  let n    = reverse (takeWhile isIdentChar l)
       vars = filter (n `isPrefixOf`) ns
   return (l,map (nameComp n) vars)
 
@@ -154,7 +155,7 @@ completeExpr (l,_) = do
 completeType :: CompletionFunc REPL
 completeType (l,_) = do
   ns <- getTypeNames
-  let n    = reverse l
+  let n    = reverse (takeWhile isIdentChar l)
       vars = filter (n `isPrefixOf`) ns
   return (l,map (nameComp n) vars)
 
@@ -166,6 +167,8 @@ nameComp prefix c = Completion
   , isFinished  = True
   }
 
+isIdentChar :: Char -> Bool
+isIdentChar c = isAlphaNum c || c `elem` "_\'"
 
 -- | Join two completion functions together, merging and sorting their results.
 (+++) :: CompletionFunc REPL -> CompletionFunc REPL -> CompletionFunc REPL

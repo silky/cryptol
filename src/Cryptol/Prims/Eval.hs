@@ -7,7 +7,7 @@
 -- Portability :  portable
 
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE Safe #-}
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE PatternGuards #-}
@@ -30,20 +30,22 @@ import Data.List (sortBy,transpose,genericTake,genericReplicate,genericSplitAt)
 import Data.Ord (comparing)
 import Data.Bits (Bits(..))
 
-import System.Random (mkStdGen)
+import System.Random.TF (mkTFGen)
 
 
 -- Utilities -------------------------------------------------------------------
 
 #if __GLASGOW_HASKELL__ < 706
+noNum = panic "Cryptol.Prims.Eval"
+          [ "Num instance for Bool shouldn't be used." ]
 instance Num Bool where
-  _ + _         = error "Num instance for Bool shouldn't be used."
-  _ * _         = error "Num instance for Bool shouldn't be used."
-  _ - _         = error "Num instance for Bool shouldn't be used."
-  negate _      = error "Num instance for Bool shouldn't be used."
-  abs _         = error "Num instance for Bool shouldn't be used."
-  signum _      = error "Num instance for Bool shouldn't be used."
-  fromInteger _ = error "Num instance for Bool shouldn't be used."
+  _ + _         = noNum
+  _ * _         = noNum
+  _ - _         = noNum
+  negate _      = noNum
+  abs _         = noNum
+  signum _      = noNum
+  fromInteger _ = noNum
 #endif
 
 #if __GLASGOW_HASKELL__ < 708
@@ -765,7 +767,7 @@ randomV :: TValue -> Integer -> Value
 randomV ty seed =
   case randomValue (tValTy ty) of
     Nothing -> zeroV ty
-    Just gen -> fst $ gen 100 $ mkStdGen (fromIntegral seed)
+    Just gen -> fst $ gen 100 $ mkTFGen (fromIntegral seed)
 
 
 -- Miscellaneous ---------------------------------------------------------------

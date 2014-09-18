@@ -14,6 +14,7 @@ import Paths_cryptol (getDataDir)
 
 import Cryptol.Eval (EvalEnv)
 import Cryptol.ModuleSystem.Interface
+import qualified Cryptol.ModuleSystem.NamingEnv as R
 import Cryptol.Parser.AST
 import qualified Cryptol.TypeCheck as T
 import qualified Cryptol.TypeCheck.AST as T
@@ -21,7 +22,8 @@ import qualified Cryptol.TypeCheck.AST as T
 import Control.Monad (guard)
 import Data.Foldable (fold)
 import Data.Function (on)
-import Data.Monoid (Monoid(..))
+import qualified Data.Map as Map
+import Data.Monoid ((<>), Monoid(..))
 import System.Environment.Executable(splitExecutablePath)
 import System.FilePath ((</>), normalise, joinPath, splitPath)
 import qualified Data.List as List
@@ -35,6 +37,7 @@ data ModuleEnv = ModuleEnv
   , meEvalEnv       :: EvalEnv
   , meFocusedModule :: Maybe ModName
   , meSearchPath    :: [FilePath]
+  , meDynEnv        :: DynamicEnv
   }
 
 initialModuleEnv :: IO ModuleEnv
@@ -48,6 +51,7 @@ initialModuleEnv  = do
     , meEvalEnv       = mempty
     , meFocusedModule = Nothing
     , meSearchPath    = [dataDir </> "lib", instDir </> "lib", "."]
+    , meDynEnv        = mempty
     }
 
 -- | Try to focus a loaded module in the module environment.
@@ -106,6 +110,7 @@ instance Monoid LoadedModules where
 
 data LoadedModule = LoadedModule
   { lmName      :: ModName
+  , lmFilePath  :: FilePath
   , lmInterface :: Iface
   , lmModule    :: T.Module
   } deriving (Show)
@@ -116,13 +121,55 @@ isLoaded mn lm = any ((mn ==) . lmName) (getLoadedModules lm)
 lookupModule :: ModName -> ModuleEnv -> Maybe LoadedModule
 lookupModule mn env = List.find ((mn ==) . lmName) (getLoadedModules (meLoadedModules env))
 
-addLoadedModule :: T.Module -> LoadedModules -> LoadedModules
-addLoadedModule tm lm
+addLoadedModule :: FilePath -> T.Module -> LoadedModules -> LoadedModules
+addLoadedModule path tm lm
   | isLoaded (T.mName tm) lm = lm
   | otherwise                = LoadedModules (getLoadedModules lm ++ [loaded])
   where
   loaded = LoadedModule
     { lmName      = T.mName tm
+    , lmFilePath  = path
     , lmInterface = genIface tm
     , lmModule    = tm
     }
+
+-- Dynamic Environments --------------------------------------------------------
+
+-- | Extra information we need to carry around to dynamically extend
+-- an environment outside the context of a single module. Particularly
+-- useful when dealing with interactive declarations as in @:let@ or
+-- @it@.
+
+data DynamicEnv = DEnv
+  { deNames :: R.NamingEnv
+  , deDecls :: [T.DeclGroup]
+  , deEnv   :: EvalEnv
+  }
+
+instance Monoid DynamicEnv where
+  mempty = DEnv
+    { deNames = mempty
+    , deDecls = mempty
+    , deEnv   = mempty
+    }
+  mappend de1 de2 = DEnv
+    { deNames = deNames de1 <> deNames de2
+    , deDecls = deDecls de1 <> deDecls de2
+    , deEnv   = deEnv   de1 <> deEnv   de2
+    }
+
+-- | Build 'IfaceDecls' that correspond to all of the bindings in the
+-- dynamic environment.
+--
+-- XXX: if we ever add type synonyms or newtypes at the REPL, revisit
+-- this.
+deIfaceDecls :: DynamicEnv -> IfaceDecls
+deIfaceDecls DEnv { deDecls = dgs } =
+  mconcat [ IfaceDecls
+            { ifTySyns   = Map.empty
+            , ifNewtypes = Map.empty
+            , ifDecls    = Map.singleton (ifDeclName ifd) [ifd]
+            }
+          | decl <- concatMap T.groupDecls dgs
+          , let ifd = mkIfaceDecl decl
+          ]
